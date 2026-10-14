@@ -7,6 +7,13 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(geometry_msgs REQUIRED)
+
+add_executable(teleop src/teleop_node.cpp)
+ament_target_dependencies(teleop rclcpp geometry_msgs)
+
+install(TARGETS teleop DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
