@@ -21,6 +21,7 @@ find_package(Eigen3 REQUIRED)
 # Pure algorithm code. No ROS2 node logic. Tests link against this.
 # This separation lets us test math without spinning up a ROS2 runtime.
 add_library(slam_core SHARED
+  src/occupancy_grid.cpp
   src/slam_config.cpp
   src/odometry.cpp
 )
@@ -80,6 +81,7 @@ if(BUILD_TESTING)
   endfunction()
 
   # Unit tests link against slam_core
+  slam_add_example_test(occupancy_grid_test test/occupancy_grid_test.cpp unit fast)
   slam_add_example_test(odometry_test test/odometry_test.cpp unit fast)
   slam_add_example_test(slam_types_test test/slam_types_test.cpp unit fast)
   if(SLAM_BUILD_PROPERTY_TESTS)
