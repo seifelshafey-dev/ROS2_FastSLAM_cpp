@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 project(slam_cpp)
 
+option(SLAM_BUILD_ROS "Build the ROS 2 node and package it with ament" ON)
 option(SLAM_BUILD_TOOLS "Build the ROS-free figure tools" OFF)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -17,6 +18,9 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 # --- Dependencies ---
+if(SLAM_BUILD_ROS)
+  find_package(ament_cmake REQUIRED)
+endif()
 find_package(Eigen3 REQUIRED)
 find_package(OpenMP)
 
@@ -44,12 +48,36 @@ if(OpenMP_CXX_FOUND)
   target_compile_definitions(slam_core PUBLIC SLAM_HAS_OPENMP)
 endif()
 
+if(SLAM_BUILD_ROS)
+  # --- Install ---
+  install(TARGETS slam_core
+    EXPORT export_slam_core
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+  )
+
+  install(DIRECTORY include/ DESTINATION include)
+
+  ament_export_targets(export_slam_core HAS_LIBRARY_TARGET)
+  ament_export_dependencies(Eigen3)
+endif()
+
 # --- Testing ---
-include(CTest)
+if(NOT SLAM_BUILD_ROS)
+  include(CTest)
+endif()
 
 if(BUILD_TESTING)
-  find_package(GTest REQUIRED)
-  enable_testing()
+  if(SLAM_BUILD_ROS)
+    find_package(ament_lint_auto REQUIRED)
+    find_package(ament_cmake_gtest REQUIRED)
+
+    ament_lint_auto_find_test_dependencies()
+  else()
+    find_package(GTest REQUIRED)
+    enable_testing()
+  endif()
 
   option(SLAM_BUILD_PROPERTY_TESTS "Build the RapidCheck property tests" ON)
 
@@ -70,11 +98,15 @@ if(BUILD_TESTING)
     endif()
   endif()
 
-  # Registers a GoogleTest executable.
+  # Registers a GoogleTest executable with ament under ROS, plain CMake otherwise.
   function(slam_add_gtest name source)
-    add_executable(${name} ${source})
-    target_link_libraries(${name} GTest::gtest_main)
-    add_test(NAME ${name} COMMAND ${name})
+    if(SLAM_BUILD_ROS)
+      ament_add_gtest(${name} ${source})
+    else()
+      add_executable(${name} ${source})
+      target_link_libraries(${name} GTest::gtest_main)
+      add_test(NAME ${name} COMMAND ${name})
+    endif()
   endfunction()
 
   # Example test: GoogleTest only, no RapidCheck. Extra args are CTest labels.
@@ -111,4 +143,8 @@ endif()
 
 if(SLAM_BUILD_TOOLS)
   add_subdirectory(tools)
+endif()
+
+if(SLAM_BUILD_ROS)
+  ament_package()
 endif()
