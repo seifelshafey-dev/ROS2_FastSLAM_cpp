@@ -1,0 +1,26 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 30
+    use_sim_time: true
+
+    joint_broad:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    diff_cont:
+      type: diff_drive_controller/DiffDriveController
+
+diff_cont:
+  ros__parameters:
+    publish_rate: 30.0
+    velocity_rolling_window_size: 1  # report the latest period's wheel velocity, not a mean over 10 (about 0.15 s late at 30 Hz)
+    base_frame_id: base_link
+
+    # Use vertical list for maximum safety
+    left_wheel_names: ['left_wheel_joint']
+    right_wheel_names: ['right_wheel_joint']
+
+    wheel_separation: 0.525
+    wheel_radius: 0.075
+    wheel_separation_multiplier: 0.953  # measured: the model turns as if the wheels were 0.500 m apart, not the 0.525 m between their centres
+    enable_odom_tf: false  # EKF publishes odom→base_link instead
+    use_stamped_vel: false
