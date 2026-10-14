@@ -82,9 +82,11 @@ if(BUILD_TESTING)
 
   # Unit tests link against slam_core
   slam_add_example_test(occupancy_grid_test test/occupancy_grid_test.cpp unit fast)
+  slam_add_example_test(support_room_test test/support/room_test.cpp unit fast)
   slam_add_example_test(odometry_test test/odometry_test.cpp unit fast)
   slam_add_example_test(slam_types_test test/slam_types_test.cpp unit fast)
   if(SLAM_BUILD_PROPERTY_TESTS)
+    slam_add_property_test(support_room_property_test test/support/room_property_test.cpp prop fast)
     slam_add_property_test(slam_config_property_test test/slam_config_property_test.cpp prop fast)
     slam_add_property_test(odometry_property_test test/odometry_property_test.cpp prop fast)
   endif()
