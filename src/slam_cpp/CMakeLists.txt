@@ -16,6 +16,7 @@ endif()
 
 # --- Dependencies ---
 find_package(Eigen3 REQUIRED)
+find_package(OpenMP)
 
 # --- LIBRARY TARGET: slam_core ---
 # Pure algorithm code. No ROS2 node logic. Tests link against this.
@@ -24,6 +25,7 @@ add_library(slam_core SHARED
   src/occupancy_grid.cpp
   src/slam_config.cpp
   src/scan_matching.cpp
+  src/particle_filter.cpp
   src/odometry.cpp
 )
 
@@ -33,6 +35,12 @@ target_include_directories(slam_core PUBLIC
 )
 
 target_link_libraries(slam_core PUBLIC Eigen3::Eigen)
+
+# OpenMP for parallel scan matching in particle_filter.cpp
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(slam_core PUBLIC OpenMP::OpenMP_CXX)
+  target_compile_definitions(slam_core PUBLIC SLAM_HAS_OPENMP)
+endif()
 
 # --- Testing ---
 include(CTest)
@@ -84,10 +92,13 @@ if(BUILD_TESTING)
   # Unit tests link against slam_core
   slam_add_example_test(occupancy_grid_test test/occupancy_grid_test.cpp unit fast)
   slam_add_example_test(scan_matching_test test/scan_matching_test.cpp unit fast)
+  slam_add_example_test(particle_filter_test test/particle_filter_test.cpp unit fast)
   slam_add_example_test(support_room_test test/support/room_test.cpp unit fast)
+  slam_add_example_test(slam_config_test test/slam_config_test.cpp unit fast)
   slam_add_example_test(odometry_test test/odometry_test.cpp unit fast)
   slam_add_example_test(slam_types_test test/slam_types_test.cpp unit fast)
   slam_add_example_test(scan_matching_integration_test test/scan_matching_integration_test.cpp integration fast)
+  slam_add_example_test(particle_filter_integration_test test/particle_filter_integration_test.cpp integration)
   if(SLAM_BUILD_PROPERTY_TESTS)
     slam_add_property_test(scan_matching_property_test test/scan_matching_property_test.cpp prop fast)
     slam_add_property_test(support_room_property_test test/support/room_property_test.cpp prop fast)
