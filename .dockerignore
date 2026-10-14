@@ -1,0 +1,14 @@
+# Sources are mounted at /ws/src, never copied; the build context needs only docker/.
+src/
+build/
+install/
+log/
+.git/
+prototype/
+docs/
+**/__pycache__/
+.cache/
+bags/
+**/rosbag2_*/
+*.db3
+*.mcap
