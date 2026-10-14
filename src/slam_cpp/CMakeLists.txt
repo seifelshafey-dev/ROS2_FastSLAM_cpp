@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(slam_cpp)
 
+option(SLAM_BUILD_TOOLS "Build the ROS-free figure tools" OFF)
+
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "No CMAKE_BUILD_TYPE given, defaulting to Release")
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -105,4 +107,8 @@ if(BUILD_TESTING)
     slam_add_property_test(slam_config_property_test test/slam_config_property_test.cpp prop fast)
     slam_add_property_test(odometry_property_test test/odometry_property_test.cpp prop fast)
   endif()
+endif()
+
+if(SLAM_BUILD_TOOLS)
+  add_subdirectory(tools)
 endif()
