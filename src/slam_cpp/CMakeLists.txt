@@ -79,6 +79,14 @@ if(SLAM_BUILD_ROS)
 
   install(DIRECTORY include/ DESTINATION include)
 
+  install(DIRECTORY config
+    DESTINATION share/${PROJECT_NAME}/
+  )
+
+  install(DIRECTORY launch
+    DESTINATION share/${PROJECT_NAME}/
+  )
+
   ament_export_targets(export_slam_core HAS_LIBRARY_TARGET)
   ament_export_dependencies(Eigen3)
 endif()
