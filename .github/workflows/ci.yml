@@ -69,7 +69,7 @@ jobs:
         # The Debug leg is optimised with assertions on (NDEBUG undefined), so death tests run and the suite stays fast.
         run: |
           if [ "${{ matrix.build_type }}" = Release ]; then
-            pkgs="slam_cpp"
+            pkgs="slam_cpp robot_bringup"
             props=ON
             label=""
           else
