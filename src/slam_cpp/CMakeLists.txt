@@ -20,6 +20,11 @@ endif()
 # --- Dependencies ---
 if(SLAM_BUILD_ROS)
   find_package(ament_cmake REQUIRED)
+  find_package(rclcpp REQUIRED)
+  find_package(nav_msgs REQUIRED)
+  find_package(sensor_msgs REQUIRED)
+  find_package(geometry_msgs REQUIRED)
+  find_package(tf2_ros REQUIRED)
 endif()
 find_package(Eigen3 REQUIRED)
 find_package(OpenMP)
@@ -49,7 +54,22 @@ if(OpenMP_CXX_FOUND)
 endif()
 
 if(SLAM_BUILD_ROS)
+  # --- EXECUTABLE TARGET: slam_node ---
+  # ROS2 wiring: subscriptions, publishers, TF, parameter loading.
+  # Links against slam_core for the actual algorithms.
+  #
+  # NOTE: ament_target_dependencies uses "plain" target_link_libraries internally,
+  # so we must also use plain mode for slam_core (no PRIVATE/PUBLIC keyword).
+  # Mixing keyword and plain modes on the same target is a CMake error.
+  add_executable(slam_node src/ros/slam_node.cpp)
+  target_link_libraries(slam_node slam_core)
+  ament_target_dependencies(slam_node
+    rclcpp nav_msgs sensor_msgs geometry_msgs tf2_ros
+  )
+
   # --- Install ---
+  install(TARGETS slam_node DESTINATION lib/${PROJECT_NAME})
+
   install(TARGETS slam_core
     EXPORT export_slam_core
     ARCHIVE DESTINATION lib
@@ -123,7 +143,7 @@ if(BUILD_TESTING)
     set_tests_properties(${name} PROPERTIES LABELS "${ARGN}")
   endfunction()
 
-  # Unit tests link against slam_core
+  # Unit tests link against slam_core, NOT slam_node
   slam_add_example_test(occupancy_grid_test test/occupancy_grid_test.cpp unit fast)
   slam_add_example_test(scan_matching_test test/scan_matching_test.cpp unit fast)
   slam_add_example_test(particle_filter_test test/particle_filter_test.cpp unit fast)
