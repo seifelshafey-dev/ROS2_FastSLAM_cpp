@@ -22,6 +22,7 @@ find_package(Eigen3 REQUIRED)
 # This separation lets us test math without spinning up a ROS2 runtime.
 add_library(slam_core SHARED
   src/slam_config.cpp
+  src/odometry.cpp
 )
 
 target_include_directories(slam_core PUBLIC
@@ -79,8 +80,10 @@ if(BUILD_TESTING)
   endfunction()
 
   # Unit tests link against slam_core
+  slam_add_example_test(odometry_test test/odometry_test.cpp unit fast)
   slam_add_example_test(slam_types_test test/slam_types_test.cpp unit fast)
   if(SLAM_BUILD_PROPERTY_TESTS)
     slam_add_property_test(slam_config_property_test test/slam_config_property_test.cpp prop fast)
+    slam_add_property_test(odometry_property_test test/odometry_property_test.cpp prop fast)
   endif()
 endif()
