@@ -72,16 +72,18 @@ jobs:
             pkgs="slam_cpp robot_bringup"
             props=ON
             label=""
+            rc="-DSLAM_RC_PARAMS=max_success=1000"
           else
             pkgs="slam_cpp"
             props=OFF
             label="-L unit"
+            rc=""
           fi
-          docker run --rm -v "$PWD/src:/ws/src" -e PKGS="$pkgs" -e PROPS="$props" -e LABEL="$label" \
+          docker run --rm -v "$PWD/src:/ws/src" -e PKGS="$pkgs" -e PROPS="$props" -e LABEL="$label" -e RC="$rc" \
             -e BT="${{ matrix.build_type }}" "$IMAGE" bash -c '
             cd /ws &&
             colcon build --executor sequential --packages-select $PKGS \
-              --cmake-args -DCMAKE_BUILD_TYPE=$BT -DSLAM_BUILD_PROPERTY_TESTS=$PROPS "-DCMAKE_CXX_FLAGS_DEBUG=-O2 -g" &&
+              --cmake-args -DCMAKE_BUILD_TYPE=$BT -DSLAM_BUILD_PROPERTY_TESTS=$PROPS $RC "-DCMAKE_CXX_FLAGS_DEBUG=-O2 -g" &&
             colcon test --executor sequential --packages-select $PKGS \
               --ctest-args $LABEL;
             rc=$?; colcon test-result --verbose && exit $rc'
