@@ -13,7 +13,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  toolchain:
+  fast:
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.draft)
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -31,10 +34,57 @@ jobs:
           done
           echo "::error::$IMAGE never appeared; check the image.yml workflow run"
           exit 1
-      - name: Print the tool versions
+      - name: Build and test
         run: |
-          docker run --rm "$IMAGE" bash -c '
-            cmake --version | head -1 && g++-12 --version | head -1 && colcon --help > /dev/null && doxygen --version | head -1'
+          docker run --rm -v "$PWD/src:/ws/src" "$IMAGE" bash -c '
+            cd /ws &&
+            colcon build --executor sequential --packages-select slam_cpp \
+              --cmake-args -DCMAKE_BUILD_TYPE=Release -DSLAM_BUILD_PROPERTY_TESTS=OFF &&
+            colcon test --executor sequential --packages-select slam_cpp --ctest-args -L fast;
+            rc=$?; colcon test-result --verbose && exit $rc'
+  full:
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Debug]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Pull image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ hashFiles('docker/Dockerfile') }}
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/slam-ci:$TAG"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          for i in $(seq 30); do
+            docker pull "$IMAGE" && exit 0
+            echo "image not available yet ($i/30); waiting for image.yml"; sleep 60
+          done
+          echo "::error::$IMAGE never appeared; check the image.yml workflow run"
+          exit 1
+      - name: Build and test
+        # The Debug leg is optimised with assertions on (NDEBUG undefined), so death tests run and the suite stays fast.
+        run: |
+          if [ "${{ matrix.build_type }}" = Release ]; then
+            pkgs="slam_cpp"
+            props=ON
+            label=""
+          else
+            pkgs="slam_cpp"
+            props=OFF
+            label="-L unit"
+          fi
+          docker run --rm -v "$PWD/src:/ws/src" -e PKGS="$pkgs" -e PROPS="$props" -e LABEL="$label" \
+            -e BT="${{ matrix.build_type }}" "$IMAGE" bash -c '
+            cd /ws &&
+            colcon build --executor sequential --packages-select $PKGS \
+              --cmake-args -DCMAKE_BUILD_TYPE=$BT -DSLAM_BUILD_PROPERTY_TESTS=$PROPS "-DCMAKE_CXX_FLAGS_DEBUG=-O2 -g" &&
+            colcon test --executor sequential --packages-select $PKGS \
+              --ctest-args $LABEL;
+            rc=$?; colcon test-result --verbose && exit $rc'
   core-no-ros:
     runs-on: ubuntu-22.04
     steps:
@@ -48,7 +98,7 @@ jobs:
           CC: gcc-12
           CXX: g++-12
         run: |
-          cmake -S src/slam_cpp -B build -DSLAM_BUILD_TOOLS=ON -DBUILD_TESTING=ON
+          cmake -S src/slam_cpp -B build -DSLAM_BUILD_ROS=OFF -DSLAM_BUILD_TOOLS=ON -DBUILD_TESTING=ON
           cmake --build build -j2
           ctest --test-dir build --output-on-failure
       - name: Compile each header alone

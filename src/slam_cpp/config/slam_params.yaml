@@ -1,0 +1,72 @@
+# Default parameters of slam_node. The same defaults are in the SlamConfig
+# struct (include/slam_cpp/slam_config.hpp).
+#
+# Units, ranges and what each setting trades are in docs/architecture/config.md.
+# Known limits are in docs/architecture/limits.md. One of them is a double wall
+# when a loop is closed, because there is no loop closure.
+#
+# Load with: ros2 launch slam_cpp slam_cpp.launch.py
+
+slam_node:
+  ros__parameters:
+    # Particle filter
+    num_particles: 80
+
+    # Occupancy grid
+    map_size: 50.0          # meters (square map, 50m x 50m)
+    map_resolution: 0.1     # meters per cell (500 x 500 grid)
+
+    # Log-odds scaling
+    log_odds_scale: 20.0
+    lo_occupied: 0.85
+    lo_free: -0.4
+    lo_max: 5.0
+    lo_min: -5.0
+
+    # Motion model noise: standard deviation coefficients (see docs/architecture/config.md)
+    alpha1: 0.075
+    alpha2: 0.03
+    alpha3: 0.075
+    alpha4: 0.03
+
+    # Scan matching
+    sigma_hit: 0.05
+    score_stride: 2
+    lm_max_iters: 10
+    lm_max_sub_iters: 3
+
+    # Levenberg-Marquardt damping schedule
+    lm_lambda_init: 0.01
+    lm_lambda_min: 1.0e-7
+    lm_lambda_max: 1.0e4
+    lm_lambda_up: 10.0
+    lm_lambda_down: 0.1
+
+    # Motion thresholds
+    motion_threshold_trans: 0.05   # meters
+    motion_threshold_rot: 0.05     # radians
+
+    # Map update gating
+    map_update_dist: 0.20          # meters
+    map_update_angle: 0.25         # radians
+
+    # Weight calculation: gain = 1 / (obs_sigma_gain * num_particles)
+    # A higher value flattens the weights, so fewer particles collapse onto one.
+    obs_sigma_gain: 3.0
+
+    # Scan subsampling
+    scan_stride: 1
+
+    # Map quality cache
+    quality_cache_interval: 5
+
+    # Topics
+    odom_topic: "/odometry/filtered"
+    scan_topic: "/scan"
+
+    # Frames
+    map_frame: "map"
+    odom_frame: "odom"
+
+    # Publishing
+    map_publish_rate: 2.0          # Hz
