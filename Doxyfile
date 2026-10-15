@@ -1,0 +1,14 @@
+# Settings that differ from the doxygen 1.9.1 defaults. The parent of
+# OUTPUT_DIRECTORY must exist: run `mkdir -p build` first.
+PROJECT_NAME           = "slam_cpp"
+INPUT                  = src/slam_cpp/include src/slam_cpp/src/ros
+RECURSIVE              = YES
+OUTPUT_DIRECTORY       = build/docs
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES
+WARN_AS_ERROR          = FAIL_ON_WARNINGS
+QUIET                  = YES
+GENERATE_LATEX         = NO
+HAVE_DOT               = YES
