@@ -65,10 +65,10 @@ public:
   /// @param width       Extent along world x, in metres; > 0.
   /// @param height      Extent along world y, in metres; > 0.
   /// @param resolution  Cell side in metres; > 0.
-  /// @param config      Supplies the log-odds scale, increments and limits; must have
-  ///                    passed validate(); not checked here.
-  /// @throws std::invalid_argument if width, height or resolution is not positive,
-  ///         or if a side would have fewer than 2 or more than 20000 cells.
+  /// @param config      Supplies the log-odds scale, increments and limits; checked with
+  ///                    validate().
+  /// @throws std::invalid_argument if `config` is invalid, if width, height or resolution
+  ///         is not positive, or if a side would have fewer than 2 or more than 20000 cells.
   OccupancyGrid(
     double width, double height, double resolution,
     const SlamConfig & config);

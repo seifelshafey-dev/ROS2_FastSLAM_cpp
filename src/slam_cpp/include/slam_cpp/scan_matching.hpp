@@ -40,12 +40,14 @@ namespace slam
 /// The view holds a pointer to the grid's cells and to `sigmoid`; both must
 /// outlive the view, and the grid must not be written while the view is in use.
 /// The grid must be square and `config.map_resolution` must equal the grid's
-/// resolution; neither is checked.
+/// resolution to within a relative 1e-9.
 ///
 /// @param grid     Grid to read.
 /// @param config   Supplies `map_resolution`, in metres per cell.
 /// @param sigmoid  Table that converts a stored cell value to an occupancy probability.
 /// @return A view whose `sample_origin` is `cols/2 - 0.5`, so cell values are read at cell centres.
+/// @throws std::invalid_argument if the grid is not square or its resolution differs from
+///         `config.map_resolution` by more than a relative 1e-9.
 GridView make_grid_view(
   const OccupancyGrid & grid, const SlamConfig & config,
   const SigmoidLUT & sigmoid);
@@ -66,6 +68,7 @@ GridView make_grid_view(
 /// @param stride           use every stride-th beam, >= 1
 /// @return one row per kept beam, in beam order; no rows if nothing is kept
 ///         or if angle_min or angle_increment is not finite
+/// @throws std::invalid_argument if `stride` is less than 1.
 Eigen::Matrix<double, Eigen::Dynamic, 2> extract_local_scan(
   const float * ranges, int num_ranges, float angle_min, float angle_increment,
   float range_min, float range_max, int stride);
@@ -86,8 +89,9 @@ double median_point_spacing(
 /// Keeps every stride-th row of a scan, starting with row 0.
 ///
 /// @param scans   Scan points, one row (x, y) per point.
-/// @param stride  Step between kept rows; must be >= 1 (not checked).
+/// @param stride  Step between kept rows; must be >= 1.
 /// @return Rows 0, stride, 2 * stride, ... of `scans`, in order.
+/// @throws std::invalid_argument if `stride` is less than 1.
 Eigen::Matrix<double, Eigen::Dynamic, 2> subsample_scan(
   const Eigen::Matrix<double, Eigen::Dynamic, 2> & scans, int stride);
 

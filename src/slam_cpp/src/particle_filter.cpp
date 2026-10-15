@@ -15,7 +15,10 @@
 #include "slam_cpp/particle_filter.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <string>
 
+#include "slam_cpp/check.hpp"
 #include "slam_cpp/scan_matching.hpp"
 #include "slam_cpp/slam_config.hpp"
 
@@ -74,6 +77,14 @@ void ParticleFilter::predict(
   double trans, double rot1, double rot2,
   double direction)
 {
+  SLAM_CHECK(
+    std::isfinite(trans) && trans >= 0.0,
+    "trans must be finite and >= 0, got " + std::to_string(trans));
+  SLAM_CHECK(std::isfinite(rot1), "rot1 must be finite, got " + std::to_string(rot1));
+  SLAM_CHECK(std::isfinite(rot2), "rot2 must be finite, got " + std::to_string(rot2));
+  SLAM_CHECK(
+    std::isfinite(direction), "direction must be finite, got " + std::to_string(direction));
+
   // Noise standard deviations (1e-9 floor prevents zero std dev).
   double sd_rot1 = config_.alpha1 * std::abs(rot1) +
     config_.alpha2 * trans + 1e-9;
@@ -139,6 +150,8 @@ void ParticleFilter::predict(
 void ParticleFilter::update_and_resample(
   const Eigen::Matrix<double, Eigen::Dynamic, 2> & local_scans)
 {
+  SLAM_CHECK(local_scans.rows() > 0, "scan must have at least one row, got 0");
+
   // First call: no map yet, so nothing to match against. Register the scan
   // at each particle's current pose and leave poses, weights and covs as is.
   if (!has_last_map_update_pose_) {

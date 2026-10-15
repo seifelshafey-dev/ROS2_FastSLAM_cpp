@@ -18,8 +18,11 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <sstream>
+#include <string>
 #include <vector>
 
+#include "slam_cpp/check.hpp"
 #include "slam_cpp/slam_config.hpp"
 
 namespace slam
@@ -32,6 +35,20 @@ GridView make_grid_view(
   const OccupancyGrid & grid, const SlamConfig & config,
   const SigmoidLUT & sigmoid)
 {
+  SLAM_CHECK(
+    grid.rows() == grid.cols(),
+    "grid must be square, got " + std::to_string(grid.rows()) + " rows and " +
+    std::to_string(grid.cols()) + " columns");
+  SLAM_CHECK(
+    std::abs(grid.resolution() - config.map_resolution) <=
+    1e-9 * std::abs(config.map_resolution),
+    [&] {
+      std::ostringstream os;
+      os.precision(17);
+      os << "grid resolution must equal config.map_resolution within a relative 1e-9, got " <<
+        grid.resolution() << " and " << config.map_resolution;
+      return os.str();
+    }());
   return {
     grid.data(),
     grid.rows(),
@@ -51,6 +68,7 @@ Eigen::Matrix<double, Eigen::Dynamic, 2> extract_local_scan(
   const float * ranges, int num_ranges, float angle_min, float angle_increment,
   float range_min, float range_max, int stride)
 {
+  SLAM_CHECK(stride >= 1, "stride must be >= 1, got " + std::to_string(stride));
   if (!std::isfinite(angle_min) || !std::isfinite(angle_increment)) {
     return Eigen::Matrix<double, Eigen::Dynamic, 2>(0, 2);
   }
@@ -105,6 +123,7 @@ double median_point_spacing(
 Eigen::Matrix<double, Eigen::Dynamic, 2> subsample_scan(
   const Eigen::Matrix<double, Eigen::Dynamic, 2> & scans, int stride)
 {
+  SLAM_CHECK(stride >= 1, "stride must be >= 1, got " + std::to_string(stride));
   int n_full = static_cast<int>(scans.rows());
   int n_sub = 0;
   for (int i = 0; i < n_full; i += stride) {

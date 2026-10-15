@@ -17,7 +17,9 @@
 #ifdef SLAM_HAS_OPENMP
 #include <omp.h>
 #endif
+#include <limits>
 #include <random>
+#include <stdexcept>
 #include <set>
 #include <tuple>
 #include "slam_cpp/slam_config.hpp"
@@ -67,6 +69,54 @@ TEST_F(ParticleFilterTest, ConstructionInitializesCorrectly)
 
   // Correct number of grids.
   EXPECT_EQ(pf->grids().size(), 10u);
+}
+
+// predict rejects a negative or non-finite argument and accepts the valid edge.
+TEST_F(ParticleFilterTest, PredictChecksArguments)
+{
+  const double nan = std::numeric_limits<double>::quiet_NaN();
+  const double inf = std::numeric_limits<double>::infinity();
+  EXPECT_NO_THROW(pf->predict(0.0, 0.0, 0.0, 1.0));
+  EXPECT_THROW(pf->predict(-0.1, 0.0, 0.0, 1.0), std::invalid_argument);
+  EXPECT_THROW(pf->predict(nan, 0.0, 0.0, 1.0), std::invalid_argument);
+  EXPECT_THROW(pf->predict(0.0, nan, 0.0, 1.0), std::invalid_argument);
+  EXPECT_THROW(pf->predict(0.0, 0.0, nan, 1.0), std::invalid_argument);
+  EXPECT_THROW(pf->predict(0.0, 0.0, 0.0, nan), std::invalid_argument);
+  EXPECT_THROW(pf->predict(0.0, inf, 0.0, 1.0), std::invalid_argument);
+  EXPECT_THROW(pf->predict(inf, 0.0, 0.0, 1.0), std::invalid_argument);
+  EXPECT_THROW(pf->predict(0.0, 0.0, inf, 1.0), std::invalid_argument);
+  EXPECT_THROW(pf->predict(0.0, 0.0, 0.0, inf), std::invalid_argument);
+}
+
+// An empty scan is rejected without consuming the "first call": a later one-row scan is
+// still registered (counter 1, map written, poses and weights untouched), not matched.
+TEST_F(ParticleFilterTest, EmptyScanThrowsAndFirstCallIsStillPending)
+{
+  EXPECT_THROW(
+    pf->update_and_resample(Eigen::Matrix<double, Eigen::Dynamic, 2>::Zero(0, 2)),
+    std::invalid_argument);
+  EXPECT_EQ(pf->global_counter(), 0);
+  for (const auto & grid : pf->grids()) {
+    EXPECT_EQ(grid.map_quality(), 0.0);
+  }
+
+  Eigen::Matrix<double, Eigen::Dynamic, 2> one(1, 2);
+  one << 2.0, 0.0;
+  ASSERT_NO_THROW(pf->update_and_resample(one));
+  EXPECT_EQ(pf->global_counter(), 1);
+  for (int i = 0; i < 10; ++i) {
+    EXPECT_EQ(pf->poses()(0, i), 0.0);
+    EXPECT_EQ(pf->weights()(i), 1.0 / 10);
+  }
+  for (const auto & grid : pf->grids()) {
+    const int8_t * d = grid.data();
+    const size_t n = static_cast<size_t>(grid.rows()) * static_cast<size_t>(grid.cols());
+    bool written = false;
+    for (size_t k = 0; k < n; ++k) {
+      written = written || d[k] != 0;
+    }
+    EXPECT_TRUE(written);
+  }
 }
 
 // --------------------------------------------------------------------------

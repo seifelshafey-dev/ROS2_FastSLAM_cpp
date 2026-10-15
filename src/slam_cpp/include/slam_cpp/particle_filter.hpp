@@ -56,7 +56,8 @@ public:
   /// Creates a filter with a fixed seed, so a run can be repeated exactly.
   ///
   /// @param config  Filter settings; checked on construction.
-  /// @param seed    Seed of the random number generator.
+  /// @param seed    Seed of the random number generator. Only the low 32 bits are used:
+  ///                seeds that differ only in the high 32 bits give the same run.
   /// @throws std::invalid_argument if the configuration is invalid.
   ParticleFilter(const SlamConfig & config, uint64_t seed);
 
@@ -66,12 +67,13 @@ public:
   /// `direction`), then turns by `rot2`, with noise drawn from the motion
   /// noise settings in the configuration. Headings are wrapped to [-pi, pi).
   ///
-  /// @param trans      Distance moved, in metres; >= 0 (not checked). The sign of the motion
+  /// @param trans      Distance moved, in metres; finite and >= 0. The sign of the motion
   ///                   comes from `direction`.
-  /// @param rot1       Rotation before the move, in radians.
-  /// @param rot2       Rotation after the move, in radians.
-  /// @param direction  +1.0 for forward motion, -1.0 for reverse; other values scale the
-  ///                   translation (not checked).
+  /// @param rot1       Rotation before the move, in radians; finite.
+  /// @param rot2       Rotation after the move, in radians; finite.
+  /// @param direction  +1.0 for forward motion, -1.0 for reverse; other finite values scale the
+  ///                   translation.
+  /// @throws std::invalid_argument if `trans` is negative or any argument is not finite.
   void predict(double trans, double rot1, double rot2, double direction);
 
   /// Measurement update.
@@ -86,8 +88,7 @@ public:
   /// grid update.
   ///
   /// @param local_scans  Hit points in the base frame, one row (x, y), in metres.
-  /// @pre `local_scans` has at least one row. An empty scan is not rejected: as the first
-  ///      call it leaves the map empty and still counts as the first call.
+  /// @throws std::invalid_argument if `local_scans` has no rows.
   void update_and_resample(
     const Eigen::Matrix<double, Eigen::Dynamic, 2> & local_scans);
 
