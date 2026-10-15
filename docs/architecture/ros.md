@@ -20,7 +20,7 @@ The map has `map_size / map_resolution` cells per side and its origin at `(-map_
 
 ## Frames and the transform
 
-The node reads the odometry pose from the message as `(x, y, yaw)`. It does not look at `child_frame_id` or `header.frame_id`. It reads no transform. It assumes the lidar is at the `base_link` origin with no rotation, so the scan header frame is also ignored.
+The node reads the odometry pose from the message as `(x, y, yaw)`. An odometry message whose position or orientation is not finite is dropped with a warning, at most one per 5 s, and changes nothing. It does not look at `child_frame_id` or `header.frame_id`. It reads no transform. It assumes the lidar is at the `base_link` origin with no rotation, so the scan header frame is also ignored.
 
 The node broadcasts `map_frame` to `odom_frame` (defaults `map` and `odom`). It does not publish `odom` to `base_link`. Something else has to, in my setup the EKF.
 
@@ -50,7 +50,7 @@ The node runs on a single-threaded executor, so its callbacks never run at the s
 
 The table is in the class comment of `SlamNode`. [config.md](config.md) says what each setting trades.
 
-Parameters that become `SlamConfig` fields are checked by `validate` when the node starts. A bad value makes construction throw `std::invalid_argument`, and the process stops with that message. The five that are not `SlamConfig` fields:
+Parameters that become `SlamConfig` fields are checked by `validate` when the node starts. A bad value makes construction throw `std::invalid_argument`. `main` catches it, logs one fatal line with the message, which names the field and the rule, and the process exits with status 1. The five that are not `SlamConfig` fields:
 
 | Parameter | Default | Check |
 |---|---|---|
@@ -58,7 +58,7 @@ Parameters that become `SlamConfig` fields are checked by `validate` when the no
 | `scan_topic` | `/scan` | none |
 | `map_frame` | `map` | not empty, different from `odom_frame` |
 | `odom_frame` | `odom` | not empty, different from `map_frame` |
-| `map_publish_rate` | 2.0 Hz | greater than 0 |
+| `map_publish_rate` | 2.0 Hz | greater than 0, and the timer period `1 / rate` must be between 1 ns and 9e9 s (a rate of about 1.1e-10 Hz to 1e9 Hz) |
 
 ## Launch
 

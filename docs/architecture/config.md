@@ -2,7 +2,7 @@
 
 Every setting is a field of `SlamConfig` in [`slam_config.hpp`](../../src/slam_cpp/include/slam_cpp/slam_config.hpp). The rules are in `validate`, [`slam_config.cpp`](../../src/slam_cpp/src/slam_config.cpp). The node exposes each field as a ROS parameter of the same name. The parameter table with units and ranges is in the class comment of `SlamNode` ([`slam_node.cpp`](../../src/slam_cpp/src/ros/slam_node.cpp)). The shipped values are in [`slam_params.yaml`](../../src/slam_cpp/config/slam_params.yaml) and equal the defaults below.
 
-`validate` throws `std::invalid_argument` naming the field, its value and the rule. A NaN is rejected. Both `ParticleFilter` constructors call it. The node does not call it itself; it builds the filter at start, so the check runs there. Checked by the `SlamConfig.Rejects*` tests and `SlamConfigProperty.ConfigInsideValidRangesIsAccepted` (`../../src/slam_cpp/test/slam_config_test.cpp`, `slam_config_property_test.cpp`).
+`validate` throws `std::invalid_argument` naming the field, its value and the rule. Every floating-point field must be finite, so NaN and infinity are rejected. Both `ParticleFilter` constructors and the `OccupancyGrid` constructor call it. The node does not call it itself; it builds the filter at start, so the check runs there. Checked by the `SlamConfig.Rejects*` tests, `SlamConfig.RejectsNonFiniteInEveryDoubleField`, `SlamConfig.LogOddsExtremaMustRoundToAtLeastOneCell`, `SlamConfig.LogOddsExtremaProductBoundIs127Point5`, `SlamConfig.OccupancyGridValidatesConfig` and `SlamConfigProperty.ConfigInsideValidRangesIsAccepted` (`../../src/slam_cpp/test/slam_config_test.cpp`, `slam_config_property_test.cpp`).
 
 What each setting trades is below. A range here is what `validate` accepts. It does not say the extreme is a good choice.
 
@@ -31,7 +31,7 @@ What each setting trades is below. A range here is what `validate` accepts. It d
 | `lo_max` | 5.0 | above 0 |
 | `lo_min` | -5.0 | below 0 |
 
-A cell stores `log-odds * log_odds_scale` as an `int8`. The four log-odds values times the scale must round into `[-127, 127]`, and `lo_occupied` and `lo_free` times the scale must not round to 0. A larger scale resolves smaller log-odds steps but leaves less headroom before the clamp. `lo_max` and `lo_min` decide how many consistent observations it takes to overturn a cell: at the defaults the limits are 100 and -100 stored units and a free observation is -8, so a cell at the occupied limit goes below zero after 13 free observations and reaches the free limit after 25.
+A cell stores `log-odds * log_odds_scale` as an `int8`. The four log-odds values times the scale must round into `[-127, 127]`, `lo_occupied` and `lo_free` times the scale must not round to 0, `lo_max` times the scale must round to at least 1, and `lo_min` times the scale to at most -1 (otherwise no cell could reach the clamp). A larger scale resolves smaller log-odds steps but leaves less headroom before the clamp. `lo_max` and `lo_min` decide how many consistent observations it takes to overturn a cell: at the defaults the limits are 100 and -100 stored units and a free observation is -8, so a cell at the occupied limit goes below zero after 13 free observations and reaches the free limit after 25.
 
 ## Motion noise
 

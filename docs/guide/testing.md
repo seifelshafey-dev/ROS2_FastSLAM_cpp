@@ -41,6 +41,8 @@ colcon test-result --verbose
 
 The `prop` tests use [RapidCheck](https://github.com/emil-e/rapidcheck) with GoogleTest. They generate many random inputs and check a stated property of each result. CMake fetches RapidCheck with `git`, at the commit pinned in `CMakeLists.txt`, the first time you configure.
 
+The tests run with a fixed seed by default: CMake sets `RC_PARAMS=seed=1` for each of them through the cache variable `SLAM_RC_PARAMS`, so two runs generate the same inputs. For a longer random run, set any RapidCheck configuration string, for example `-DSLAM_RC_PARAMS=max_success=1000`. The Release leg of the `full` CI job does this. The CTest property overrides an `RC_PARAMS` set in your shell. To reproduce a failure from a random-seed run, reconfigure with `-DSLAM_RC_PARAMS="seed=N max_success=1000"`, or run the test binary directly with `RC_PARAMS=seed=N`.
+
 To skip them, configure with `-DSLAM_BUILD_PROPERTY_TESTS=OFF`:
 
 ```bash
@@ -85,7 +87,7 @@ Under ROS, `colcon test` also runs the `ament_lint_common` linters on both packa
 | `doxygen` | Every run of the workflow | Runs `doxygen Doxyfile`, which fails on any warning. |
 | `core-no-ros` | Every run of the workflow | The no-ROS build above, then compiles each header alone to show that none relies on another being included first. |
 
-A change that touches only `docs/` or Markdown files does not start `ci.yml`. The `fast` job's property-test switch means the `fast` label alone does not exercise RapidCheck in CI; the Release leg of `full` and the `core-no-ros` job do.
+A change that touches only `docs/` or Markdown files does not start `ci.yml`. The `fast` job's property-test switch means the `fast` label alone does not exercise RapidCheck in CI; the Release leg of `full` (which also passes `-DSLAM_RC_PARAMS=max_success=1000`) and the `core-no-ros` job do.
 
 ## Doxygen
 
