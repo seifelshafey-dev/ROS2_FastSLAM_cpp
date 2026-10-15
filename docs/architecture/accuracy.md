@@ -77,4 +77,12 @@ This starts the simulator headless, records the topics, runs the drive script an
 
 This prints the numbers above and writes `<prefix>_trajectories.png`, `<prefix>_error.png` and `<prefix>_metrics.json`. `--replay` plays the recorded `/scan` and `/odometry/filtered` into a fresh SLAM node and scores that node's output, so you can test a change on the same inputs without the simulator. Without it, `evaluate.py` scores the `/slam/best_pose` messages stored in the bag, which is the live run. `--map-png <file>` writes the last map with the room's true wall faces.
 
-<!-- release asset link -->
+## The recordings
+
+The three live recordings are attached to the [0.1.0 release](https://github.com/seifelshafey-dev/ROS2_FastSLAM_cpp/releases/tag/v0.1.0) as `live1.tar`, `live2.tar` and `live3.tar`, with their SHA-256 sums in `SHA256SUMS`. Each archive holds one bag directory. Download them into the repository root, then check and score one:
+
+    sha256sum -c SHA256SUMS
+    tar -xf live1.tar
+    python3 src/slam_cpp/tools/accuracy/evaluate.py live1
+
+This prints the live run 1 numbers above.
