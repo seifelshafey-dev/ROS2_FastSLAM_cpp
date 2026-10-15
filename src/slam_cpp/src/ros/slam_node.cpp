@@ -24,6 +24,7 @@
  */
 
 #include <algorithm>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <cmath>
@@ -104,6 +105,9 @@ static double yaw_from_quaternion(const geometry_msgs::msg::Quaternion & q)
  * | `/slam/particles` | `geometry_msgs/msg/PoseArray` | reliable, volatile, depth 1 |
  * | `/slam/best_pose` | `geometry_msgs/msg/PoseStamped` | reliable, volatile, depth 1 |
  *
+ * An odometry message whose position or orientation is not finite is dropped with a warning
+ * (at most one per 5 s) and changes nothing.
+ *
  * `/slam/particles` and `/slam/best_pose` are published once per filter update and are
  * stamped with the stamp of the scan that update used. `/slam/map` is published at
  * `map_publish_rate` and stamped with the node clock. All carry `map_frame` as their
@@ -128,12 +132,13 @@ static double yaw_from_quaternion(const geometry_msgs::msg::Quaternion & q)
  * @par Parameters
  * Each parameter is declared with the default shown. Parameters that map to
  * `SlamConfig` are checked by `validate` when the node starts; an invalid value
- * makes construction throw. See `SlamConfig` for the meaning of each field.
+ * makes the node log the error and exit with status 1. See `SlamConfig` for the meaning
+ * of each field.
  *
  * | Parameter | Default | Unit | Valid range |
  * |---|---|---|---|
  * | `num_particles` | 80 | count | >= 1 |
- * | `map_size` | 50.0 | m | > 0; `map_size / map_resolution` an even whole number of cells, 2 to 20000 |
+ * | `map_size` | 50.0 | m | > 0; `map_size / map_resolution` an even whole cell count, 2 to 20000 |
  * | `map_resolution` | 0.1 | m per cell | > 0 |
  * | `log_odds_scale` | 20.0 | stored units per log-odds unit | 0 < value <= 127 |
  * | `lo_occupied` | 0.85 | log-odds | > 0 |
@@ -164,12 +169,14 @@ static double yaw_from_quaternion(const geometry_msgs::msg::Quaternion & q)
  * | `scan_topic` | `/scan` | topic name | none enforced |
  * | `map_frame` | `map` | frame id | not empty, different from `odom_frame` |
  * | `odom_frame` | `odom` | frame id | not empty, different from `map_frame` |
- * | `map_publish_rate` | 2.0 | Hz | > 0 |
+ * | `map_publish_rate` | 2.0 | Hz | > 0; period `1 / map_publish_rate` at most 9e9 s |
  *
  * Additionally, `log_odds_scale` times each of `lo_occupied`, `lo_free`, `lo_max`
- * and `lo_min` must round into [-127, 127], and `lo_occupied` and `lo_free` must not
- * round to 0. An empty or equal frame name, or a `map_publish_rate` not above 0, also
- * makes construction throw.
+ * and `lo_min` must round into [-127, 127], `lo_occupied` and `lo_free` must not
+ * round to 0, `lo_max` times `log_odds_scale` must round to at least 1 and `lo_min`
+ * times `log_odds_scale` to at most -1. Every floating-point parameter must be finite.
+ * An empty or equal frame name, or a `map_publish_rate` not above 0, also
+ * makes the node log the error and exit with status 1.
  */
 class SlamNode : public rclcpp::Node
 {
@@ -212,8 +219,15 @@ public:
     SLAM_CHECK(
       publish_rate > 0.0,
       "map_publish_rate must be > 0, got " + std::to_string(publish_rate));
-    auto period = std::chrono::duration_cast<std::chrono::milliseconds>(
+    SLAM_CHECK(
+      1.0 / publish_rate < 9e9,
+      "map_publish_rate must give a period of at most 9e9 s, got " +
+      std::to_string(publish_rate));
+    const auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
       std::chrono::duration<double>(1.0 / publish_rate));
+    SLAM_CHECK(
+      period.count() > 0,
+      "map_publish_rate is too high for a timer period, got " + std::to_string(publish_rate));
     publish_timer_ = rclcpp::create_timer(
       this, this->get_clock(), period,
       std::bind(&SlamNode::publish_callback, this));
@@ -282,6 +296,17 @@ private:
     double curr_x = msg->pose.pose.position.x;
     double curr_y = msg->pose.pose.position.y;
     double curr_th = yaw_from_quaternion(msg->pose.pose.orientation);
+
+    const auto & q = msg->pose.pose.orientation;
+    if (!std::isfinite(curr_x) || !std::isfinite(curr_y) || !std::isfinite(curr_th) ||
+      !std::isfinite(q.x) || !std::isfinite(q.y) || !std::isfinite(q.z) || !std::isfinite(q.w))
+    {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 5000,
+        "Dropping odometry message with a non-finite pose or orientation (x=%f, y=%f, yaw=%f)",
+        curr_x, curr_y, curr_th);
+      return;
+    }
 
     if (!odom_initialized_) {
       prev_x_ = curr_x;
@@ -555,11 +580,18 @@ private:
 ///
 /// @param argc  Argument count from the command line.
 /// @param argv  Arguments; ROS arguments such as `--ros-args` are consumed.
-/// @return 0 on normal shutdown.
+/// @return 0 on normal shutdown; 1 if the node could not be built (for example an invalid
+///         parameter) or failed while spinning, after logging the error.
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<slam::SlamNode>());
+  try {
+    rclcpp::spin(std::make_shared<slam::SlamNode>());
+  } catch (const std::exception & e) {
+    RCLCPP_FATAL(rclcpp::get_logger("slam_node"), "%s", e.what());
+    rclcpp::shutdown();
+    return 1;
+  }
   rclcpp::shutdown();
   return 0;
 }
