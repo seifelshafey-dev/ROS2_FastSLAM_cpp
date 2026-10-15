@@ -17,6 +17,7 @@
 #include <limits>
 #include <vector>
 #include <random>
+#include <stdexcept>
 #include "slam_cpp/slam_config.hpp"
 #include "slam_cpp/scan_matching.hpp"
 #include "slam_cpp/occupancy_grid.hpp"
@@ -108,6 +109,47 @@ TEST_F(ScanMatchingTest, ExtractLocalScanStride)
 
   // Beams at indices 0, 3, 6 should be kept (3 beams).
   EXPECT_EQ(result.rows(), 3);
+}
+
+TEST_F(ScanMatchingTest, StrideBelowOneIsRejected)
+{
+  const std::vector<float> ranges(4, 1.0f);
+  const float nan = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_EQ(
+    slam::extract_local_scan(ranges.data(), 4, 0.0f, 0.1f, 0.15f, 10.0f, 1).rows(), 4);
+  for (const int bad : {0, -1}) {
+    EXPECT_THROW(
+      slam::extract_local_scan(ranges.data(), 4, 0.0f, 0.1f, 0.15f, 10.0f, bad),
+      std::invalid_argument);
+  }
+  // The stride check comes before the non-finite-angle early return.
+  EXPECT_THROW(
+    slam::extract_local_scan(ranges.data(), 4, nan, 0.1f, 0.15f, 10.0f, 0),
+    std::invalid_argument);
+
+  Eigen::Matrix<double, Eigen::Dynamic, 2> scans = Eigen::Matrix<double, 4, 2>::Ones();
+  EXPECT_EQ(slam::subsample_scan(scans, 1).rows(), 4);
+  EXPECT_EQ(slam::subsample_scan(scans, 3).rows(), 2);
+  EXPECT_THROW(slam::subsample_scan(scans, 0), std::invalid_argument);
+  EXPECT_THROW(slam::subsample_scan(scans, -1), std::invalid_argument);
+}
+
+TEST_F(ScanMatchingTest, MakeGridViewChecksSquareAndResolution)
+{
+  const slam::OccupancyGrid grid(config.map_size, config.map_size, config.map_resolution, config);
+  EXPECT_NO_THROW(slam::make_grid_view(grid, config, *sigmoid));
+
+  // 100 columns by 50 rows.
+  const slam::OccupancyGrid wide(10.0, 5.0, 0.1, config);
+  EXPECT_THROW(slam::make_grid_view(wide, config, *sigmoid), std::invalid_argument);
+
+  // Tolerance is a relative 1e-9: 1e-10 off is accepted, 1e-8 off is rejected.
+  slam::SlamConfig near = config;
+  near.map_resolution = 0.1 * (1.0 + 1e-10);
+  EXPECT_NO_THROW(slam::make_grid_view(grid, near, *sigmoid));
+  slam::SlamConfig far = config;
+  far.map_resolution = 0.1 * (1.0 + 1e-8);
+  EXPECT_THROW(slam::make_grid_view(grid, far, *sigmoid), std::invalid_argument);
 }
 
 // Beam classes: inf, NaN, -inf, below range_min and the range_max beam are

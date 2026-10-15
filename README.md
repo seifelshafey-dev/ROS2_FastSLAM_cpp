@@ -22,6 +22,7 @@ What it is not:
 - Ubuntu 22.04 and ROS 2 Humble.
 - A C++17 compiler. I built with GCC 11.4 and GCC 12.
 - Ignition Fortress for the simulator, only if you want the reference robot.
+- The first build downloads RapidCheck with `git` for the property tests. [testing.md](docs/guide/testing.md) has the offline options.
 
 The package lists are in [getting-started.md](docs/guide/getting-started.md).
 

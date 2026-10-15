@@ -19,6 +19,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "slam_cpp/occupancy_grid.hpp"
@@ -29,6 +30,33 @@ namespace
 {
 
 const double kNaN = std::numeric_limits<double>::quiet_NaN();
+const double kInf = std::numeric_limits<double>::infinity();
+
+// Every double field of SlamConfig, by name.
+const std::vector<std::pair<const char *, double slam::SlamConfig::*>> kDoubleFields = {
+  {"map_size", &slam::SlamConfig::map_size},
+  {"map_resolution", &slam::SlamConfig::map_resolution},
+  {"log_odds_scale", &slam::SlamConfig::log_odds_scale},
+  {"lo_occupied", &slam::SlamConfig::lo_occupied},
+  {"lo_free", &slam::SlamConfig::lo_free},
+  {"lo_max", &slam::SlamConfig::lo_max},
+  {"lo_min", &slam::SlamConfig::lo_min},
+  {"alpha1", &slam::SlamConfig::alpha1},
+  {"alpha2", &slam::SlamConfig::alpha2},
+  {"alpha3", &slam::SlamConfig::alpha3},
+  {"alpha4", &slam::SlamConfig::alpha4},
+  {"sigma_hit", &slam::SlamConfig::sigma_hit},
+  {"lm_lambda_init", &slam::SlamConfig::lm_lambda_init},
+  {"lm_lambda_min", &slam::SlamConfig::lm_lambda_min},
+  {"lm_lambda_max", &slam::SlamConfig::lm_lambda_max},
+  {"lm_lambda_up", &slam::SlamConfig::lm_lambda_up},
+  {"lm_lambda_down", &slam::SlamConfig::lm_lambda_down},
+  {"motion_threshold_trans", &slam::SlamConfig::motion_threshold_trans},
+  {"motion_threshold_rot", &slam::SlamConfig::motion_threshold_rot},
+  {"map_update_dist", &slam::SlamConfig::map_update_dist},
+  {"map_update_angle", &slam::SlamConfig::map_update_angle},
+  {"obs_sigma_gain", &slam::SlamConfig::obs_sigma_gain},
+};
 
 // Starts from a valid default config, applies `breakit` (which must break
 // exactly one rule) and expects validate to throw; `rule` names the case.
@@ -110,6 +138,7 @@ TEST(SlamConfig, RejectsBadMapGeometry)
   expect_rejected("map_resolution 0", [](auto & c) {c.map_resolution = 0.0;});
   expect_rejected("map_resolution negative", [](auto & c) {c.map_resolution = -0.1;});
   expect_rejected("map_size 0", [](auto & c) {c.map_size = 0.0;});
+  expect_rejected("map_size negative", [](auto & c) {c.map_size = -50.0;}, {"map_size"});
   expect_rejected(
     "cell count not whole (10 / 0.3)", [](auto & c) {
       c.map_size = 10.0;
@@ -189,7 +218,11 @@ TEST(SlamConfig, RejectsNegativeNoiseAndBadGains)
   expect_rejected("alpha3 negative", [](auto & c) {c.alpha3 = -0.01;});
   expect_rejected("alpha4 negative", [](auto & c) {c.alpha4 = -0.01;});
   expect_rejected("sigma_hit 0", [](auto & c) {c.sigma_hit = 0.0;});
+  expect_rejected("sigma_hit negative", [](auto & c) {c.sigma_hit = -0.05;}, {"sigma_hit"});
   expect_rejected("obs_sigma_gain 0", [](auto & c) {c.obs_sigma_gain = 0.0;});
+  expect_rejected(
+    "obs_sigma_gain negative", [](auto & c) {c.obs_sigma_gain = -3.0;},
+    {"obs_sigma_gain"});
 }
 
 TEST(SlamConfig, RejectsBrokenDampingChain)
@@ -221,14 +254,62 @@ TEST(SlamConfig, RejectsNegativeThresholds)
   expect_rejected("map_update_angle negative", [](auto & c) {c.map_update_angle = -0.01;});
 }
 
-TEST(SlamConfig, RejectsNaN)
+// Each field is tested alone; "finite" in the message proves the finiteness rule fired
+// (infinity passes every sign rule, so without that rule most of these would be accepted).
+TEST(SlamConfig, RejectsNonFiniteInEveryDoubleField)
 {
-  expect_rejected("map_resolution NaN", [](auto & c) {c.map_resolution = kNaN;});
-  expect_rejected("lo_occupied NaN", [](auto & c) {c.lo_occupied = kNaN;});
-  expect_rejected("alpha1 NaN", [](auto & c) {c.alpha1 = kNaN;});
-  expect_rejected("sigma_hit NaN", [](auto & c) {c.sigma_hit = kNaN;});
-  expect_rejected("lm_lambda_init NaN", [](auto & c) {c.lm_lambda_init = kNaN;});
-  expect_rejected("motion_threshold_trans NaN", [](auto & c) {c.motion_threshold_trans = kNaN;});
+  ASSERT_EQ(kDoubleFields.size(), 22u);
+  for (const auto & [name, member] : kDoubleFields) {
+    for (const double bad : {kNaN, kInf, -kInf}) {
+      expect_rejected(
+        name, [&, member = member](auto & c) {c.*member = bad;},
+        {name, "finite"});
+    }
+  }
+}
+
+TEST(SlamConfig, LogOddsExtremaMustRoundToAtLeastOneCell)
+{
+  // lo_max * 20 = 0.4 rounds to 0: no cell could ever rise above unknown.
+  expect_rejected(
+    "lo_max 0.02", [](auto & c) {c.lo_max = 0.02; c.log_odds_scale = 20.0;},
+    {"lo_max * log_odds_scale", "at least 1"});
+  expect_rejected(
+    "lo_min -0.02", [](auto & c) {c.lo_min = -0.02; c.log_odds_scale = 20.0;},
+    {"lo_min * log_odds_scale", "at most -1"});
+  // 0.0249 * 20 = 0.498 rounds to 0 and is rejected.
+  expect_rejected(
+    "lo_max 0.0249", [](auto & c) {c.lo_max = 0.0249; c.log_odds_scale = 20.0;},
+    {"lo_max * log_odds_scale", "at least 1"});
+  expect_rejected(
+    "lo_min -0.0249", [](auto & c) {c.lo_min = -0.0249; c.log_odds_scale = 20.0;},
+    {"lo_min * log_odds_scale", "at most -1"});
+  // 0.025 * 20 is exactly 0.5 in double; std::lround rounds half away from zero, so the
+  // smallest accepted extremum has magnitude 0.025.
+  slam::SlamConfig c;
+  c.log_odds_scale = 20.0;
+  c.lo_max = 0.025;
+  EXPECT_NO_THROW(slam::validate(c));
+  c.lo_max = 5.0;
+  c.lo_min = -0.025;
+  EXPECT_NO_THROW(slam::validate(c));
+}
+
+TEST(SlamConfig, LogOddsExtremaProductBoundIs127Point5)
+{
+  // 6.37 * 20 = 127.4 rounds to 127 (fits int8); 6.38 * 20 = 127.6 rounds to 128 (does not).
+  slam::SlamConfig c;
+  c.log_odds_scale = 20.0;
+  c.lo_max = 6.37;
+  EXPECT_NO_THROW(slam::validate(c));
+  c.lo_min = -6.37;
+  EXPECT_NO_THROW(slam::validate(c));
+  expect_rejected(
+    "lo_max 6.38", [](auto & x) {x.lo_max = 6.38; x.log_odds_scale = 20.0;},
+    {"lo_max * log_odds_scale"});
+  expect_rejected(
+    "lo_min -6.38", [](auto & x) {x.lo_min = -6.38; x.log_odds_scale = 20.0;},
+    {"lo_min * log_odds_scale"});
 }
 
 TEST(SlamConfig, MessageNamesFieldAndSourceLocation)
@@ -267,6 +348,14 @@ TEST(SlamConfig, OccupancyGridRejectsBadGeometry)
     slam::OccupancyGrid(2002.0, 2002.0, 0.1, c),
     std::invalid_argument) << "ratio above 20000";
   EXPECT_THROW(slam::OccupancyGrid(inf, 10.0, 0.1, c), std::invalid_argument) << "infinite width";
+}
+
+TEST(SlamConfig, OccupancyGridValidatesConfig)
+{
+  slam::SlamConfig c;
+  EXPECT_NO_THROW(slam::OccupancyGrid(10.0, 10.0, 0.1, c));
+  c.log_odds_scale = 200.0;
+  EXPECT_THROW(slam::OccupancyGrid(10.0, 10.0, 0.1, c), std::invalid_argument);
 }
 
 TEST(SlamConfig, OccupancyGridRoundsCellCountInsteadOfTruncating)

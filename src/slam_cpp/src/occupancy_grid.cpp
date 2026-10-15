@@ -47,7 +47,7 @@ int cell_count(double length, double resolution)
 OccupancyGrid::OccupancyGrid(
   double width, double height, double resolution,
   const SlamConfig & config)
-: rows_(cell_count(height, resolution)),
+: rows_((validate(config), cell_count(height, resolution))),
   cols_(cell_count(width, resolution)),
   resolution_(resolution),
   width_(width),

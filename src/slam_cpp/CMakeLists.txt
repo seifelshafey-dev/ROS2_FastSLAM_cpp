@@ -88,7 +88,11 @@ if(SLAM_BUILD_ROS)
   )
 
   ament_export_targets(export_slam_core HAS_LIBRARY_TARGET)
-  ament_export_dependencies(Eigen3)
+  if(OpenMP_CXX_FOUND)
+    ament_export_dependencies(Eigen3 OpenMP)
+  else()
+    ament_export_dependencies(Eigen3)
+  endif()
 endif()
 
 # --- Testing ---
@@ -107,6 +111,8 @@ if(BUILD_TESTING)
     enable_testing()
   endif()
 
+  set(SLAM_RC_PARAMS "seed=1" CACHE STRING
+    "RapidCheck RC_PARAMS for the property tests, e.g. seed=1 (fixed, default) or max_success=1000")
   option(SLAM_BUILD_PROPERTY_TESTS "Build the RapidCheck property tests" ON)
 
   # RapidCheck is added with EXCLUDE_FROM_ALL so its tests/examples are not built
@@ -148,7 +154,8 @@ if(BUILD_TESTING)
   function(slam_add_property_test name source)
     slam_add_gtest(${name} ${source})
     target_link_libraries(${name} slam_core rapidcheck rapidcheck_gtest)
-    set_tests_properties(${name} PROPERTIES LABELS "${ARGN}")
+    set_tests_properties(${name} PROPERTIES LABELS "${ARGN}"
+      ENVIRONMENT "RC_PARAMS=${SLAM_RC_PARAMS}")
   endfunction()
 
   # Unit tests link against slam_core, NOT slam_node

@@ -49,12 +49,15 @@ struct SlamConfig
   double lo_occupied = 0.85;
   /// Log-odds added to a cell for each ray passing through it; < 0. Default -0.4.
   double lo_free = -0.4;
-  /// Upper clamp of a cell's log-odds; > 0. Default 5.0.
+  /// Upper clamp of a cell's log-odds; > 0, and `lo_max * log_odds_scale` must round to
+  /// at least 1. Default 5.0.
   double lo_max = 5.0;
-  /// Lower clamp of a cell's log-odds; < 0. Default -5.0.
+  /// Lower clamp of a cell's log-odds; < 0, and `lo_min * log_odds_scale` must round to
+  /// at most -1. Default -5.0.
   double lo_min = -5.0;
   // The four values above, times log_odds_scale and rounded, must lie in [-127, 127], and
-  // lo_occupied and lo_free must not round to 0 (see the accessors below).
+  // lo_occupied and lo_free must not round to 0, lo_max must round to at least 1 and lo_min
+  // to at most -1 (see the accessors below).
 
   // Motion model noise, after the odometry motion model of Probabilistic Robotics. The
   // alphas are standard-deviation coefficients, not the book's variance coefficients.
@@ -182,8 +185,8 @@ struct SlamConfig
  *   `lm_lambda_up` > 1; 0 < `lm_lambda_down` < 1.
  * - thresholds: `motion_threshold_trans`, `motion_threshold_rot`, `map_update_dist` and
  *   `map_update_angle` >= 0.
- *
- * A NaN in any field is rejected.
+ * - every floating-point field is finite (NaN and infinity are rejected).
+ * - `lo_max * log_odds_scale` rounds to at least 1 and `lo_min * log_odds_scale` to at most -1.
  *
  * @param config Configuration to check.
  * @throws std::invalid_argument naming the field, its value and the rule that failed.

@@ -18,7 +18,7 @@ I have not tried Clang, another Ubuntu release or another ROS 2 distribution. I 
 
 ## Building without ROS
 
-`-DSLAM_BUILD_ROS=OFF` builds `slam_core` and its tests with plain CMake. No ROS or ament package is needed. It needs Eigen 3, GoogleTest and, for the property tests, `git`, because CMake fetches RapidCheck at a pinned commit. `-DSLAM_BUILD_PROPERTY_TESTS=OFF` skips RapidCheck. The `core-no-ros` job in [`ci.yml`](../../.github/workflows/ci.yml) holds the exact commands. That job also compiles each header on its own, to show that none relies on another being included first.
+`-DSLAM_BUILD_ROS=OFF` builds `slam_core` and its tests with plain CMake. No ROS or ament package is needed. It needs Eigen 3, GoogleTest and, for the property tests, `git`, because CMake fetches RapidCheck at a pinned commit. `-DSLAM_BUILD_PROPERTY_TESTS=OFF` skips RapidCheck. This build is for building and testing the core. It installs nothing; to use `slam_core` from another package, build with ROS, which exports `slam_cpp::slam_core` with Eigen 3 and, when it was found, OpenMP. I configured, built and ran a scratch package with `find_package(slam_cpp)` and `target_link_libraries(c slam_cpp::slam_core)` against the installed package. The `core-no-ros` job in [`ci.yml`](../../.github/workflows/ci.yml) holds the exact commands. That job also compiles each header on its own, to show that none relies on another being included first.
 
 This split is the check that the core is free of ROS: the no-ROS build contains no ROS header. No test checks it beyond that build succeeding.
 
@@ -42,7 +42,7 @@ GoogleTest, with RapidCheck for the property tests. Each test has one of the lab
 [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) defines four jobs, all on `ubuntu-22.04`.
 
 - `fast`: on a push to `main` and on draft pull requests. Builds `slam_cpp` in the `ci` image and runs the tests labelled `fast`, without the property tests.
-- `full`: on pull requests that are ready for review. A Release leg builds both packages and runs every test. A Debug leg builds `slam_cpp` with assertions on and runs the `unit` tests.
+- `full`: on pull requests that are ready for review. A Release leg builds both packages and runs every test, with `-DSLAM_RC_PARAMS=max_success=1000` (ten times the default number of random cases, random seed). A Debug leg builds `slam_cpp` with assertions on and runs the `unit` tests.
 - `doxygen`: runs `doxygen Doxyfile`, which fails on any warning.
 - `core-no-ros`: the no-ROS build above.
 

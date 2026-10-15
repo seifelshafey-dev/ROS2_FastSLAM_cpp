@@ -64,6 +64,8 @@ Source: [`particle_filter.hpp`](../../src/slam_cpp/include/slam_cpp/particle_fil
 
 Both constructors call `validate` and throw `std::invalid_argument` on a bad configuration. Checked by `SlamConfig.BothParticleFilterConstructorsValidate` (`slam_config_test.cpp`).
 
+These calls throw `std::invalid_argument` on input a caller can get wrong: `predict` with a negative or non-finite motion, `update_and_resample` with an empty scan (it does not count as the first call), `subsample_scan` and `extract_local_scan` with a stride below 1, and `make_grid_view` on a non-square grid or one whose resolution differs from `map_resolution` by more than a relative 1e-9. The `@throws` lines in the headers are the contract. Checked by `ParticleFilterTest.PredictChecksArguments`, `ParticleFilterTest.EmptyScanThrowsAndFirstCallIsStillPending`, `ScanMatchingTest.StrideBelowOneIsRejected` and `ScanMatchingTest.MakeGridViewChecksSquareAndResolution`.
+
 **Motion model.** `predict(trans, rot1, rot2, direction)` moves every particle by a turn, a move and a turn, each with noise. With `alpha1` to `alpha4` from the configuration, the noise standard deviations are:
 
 - first turn: `alpha1 * |rot1| + alpha2 * trans`;
