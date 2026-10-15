@@ -48,6 +48,34 @@ void validate(const SlamConfig & c)
     c.quality_cache_interval >= 1,
     msg("quality_cache_interval", ">= 1", c.quality_cache_interval));
 
+  SLAM_CHECK(std::isfinite(c.map_size), msg("map_size", "finite", c.map_size));
+  SLAM_CHECK(std::isfinite(c.map_resolution), msg("map_resolution", "finite", c.map_resolution));
+  SLAM_CHECK(std::isfinite(c.log_odds_scale), msg("log_odds_scale", "finite", c.log_odds_scale));
+  SLAM_CHECK(std::isfinite(c.lo_occupied), msg("lo_occupied", "finite", c.lo_occupied));
+  SLAM_CHECK(std::isfinite(c.lo_free), msg("lo_free", "finite", c.lo_free));
+  SLAM_CHECK(std::isfinite(c.lo_max), msg("lo_max", "finite", c.lo_max));
+  SLAM_CHECK(std::isfinite(c.lo_min), msg("lo_min", "finite", c.lo_min));
+  SLAM_CHECK(std::isfinite(c.alpha1), msg("alpha1", "finite", c.alpha1));
+  SLAM_CHECK(std::isfinite(c.alpha2), msg("alpha2", "finite", c.alpha2));
+  SLAM_CHECK(std::isfinite(c.alpha3), msg("alpha3", "finite", c.alpha3));
+  SLAM_CHECK(std::isfinite(c.alpha4), msg("alpha4", "finite", c.alpha4));
+  SLAM_CHECK(std::isfinite(c.sigma_hit), msg("sigma_hit", "finite", c.sigma_hit));
+  SLAM_CHECK(std::isfinite(c.lm_lambda_init), msg("lm_lambda_init", "finite", c.lm_lambda_init));
+  SLAM_CHECK(std::isfinite(c.lm_lambda_min), msg("lm_lambda_min", "finite", c.lm_lambda_min));
+  SLAM_CHECK(std::isfinite(c.lm_lambda_max), msg("lm_lambda_max", "finite", c.lm_lambda_max));
+  SLAM_CHECK(std::isfinite(c.lm_lambda_up), msg("lm_lambda_up", "finite", c.lm_lambda_up));
+  SLAM_CHECK(std::isfinite(c.lm_lambda_down), msg("lm_lambda_down", "finite", c.lm_lambda_down));
+  SLAM_CHECK(
+    std::isfinite(c.motion_threshold_trans),
+    msg("motion_threshold_trans", "finite", c.motion_threshold_trans));
+  SLAM_CHECK(
+    std::isfinite(c.motion_threshold_rot),
+    msg("motion_threshold_rot", "finite", c.motion_threshold_rot));
+  SLAM_CHECK(std::isfinite(c.map_update_dist), msg("map_update_dist", "finite", c.map_update_dist));
+  SLAM_CHECK(
+    std::isfinite(c.map_update_angle), msg("map_update_angle", "finite", c.map_update_angle));
+  SLAM_CHECK(std::isfinite(c.obs_sigma_gain), msg("obs_sigma_gain", "finite", c.obs_sigma_gain));
+
   SLAM_CHECK(c.map_resolution > 0.0, msg("map_resolution", "> 0", c.map_resolution));
   SLAM_CHECK(c.map_size > 0.0, msg("map_size", "> 0", c.map_size));
   const double n = c.map_size / c.map_resolution;
@@ -87,6 +115,12 @@ void validate(const SlamConfig & c)
     msg(
       "lo_min * log_odds_scale", "within [-127, 127] after rounding",
       c.lo_min * c.log_odds_scale));
+  SLAM_CHECK(
+    c.lo_max_scaled() >= 1,
+    msg("lo_max * log_odds_scale", "rounded to at least 1", c.lo_max * c.log_odds_scale));
+  SLAM_CHECK(
+    c.lo_min_scaled() <= -1,
+    msg("lo_min * log_odds_scale", "rounded to at most -1", c.lo_min * c.log_odds_scale));
   SLAM_CHECK(
     c.lo_occupied_scaled() != 0,
     msg(
