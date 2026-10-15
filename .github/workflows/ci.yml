@@ -35,3 +35,25 @@ jobs:
         run: |
           docker run --rm "$IMAGE" bash -c '
             cmake --version | head -1 && g++-12 --version | head -1 && colcon --help > /dev/null && doxygen --version | head -1'
+  core-no-ros:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake g++-12 libeigen3-dev libgtest-dev git
+      - name: Build and test the core without ROS
+        env:
+          CC: gcc-12
+          CXX: g++-12
+        run: |
+          cmake -S src/slam_cpp -B build -DSLAM_BUILD_TOOLS=ON -DBUILD_TESTING=ON
+          cmake --build build -j2
+          ctest --test-dir build --output-on-failure
+      - name: Compile each header alone
+        run: |
+          for h in src/slam_cpp/include/slam_cpp/*.hpp; do
+            echo "$h"
+            g++-12 -std=c++17 -fsyntax-only -Isrc/slam_cpp/include -I/usr/include/eigen3 -x c++ "$h" || exit 1
+          done

@@ -1,0 +1,54 @@
+/*
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+digraph overview {
+  rankdir=LR;
+  fontname="Helvetica";
+  node [shape=box, style="rounded,filled", fillcolor="#F0F0F0", color="#555555", fontname="Helvetica", fontsize=12];
+  edge [color="#555555", fontname="Helvetica", fontsize=10];
+
+  scan [label="scan", shape=ellipse, fillcolor="#D6EAF8"];
+  odom [label="odometry", shape=ellipse, fillcolor="#D6EAF8"];
+
+  subgraph cluster_node {
+    label="slam_node"; style="rounded"; color="#0072B2"; fontname="Helvetica";
+    acc [label="accumulate odometry,\nsplit into motion\n(rot1, trans, rot2)"];
+    subgraph cluster_filter {
+      label="particle filter (N particles)"; style="rounded"; color="#D55E00"; fontname="Helvetica";
+      predict [label="predict"];
+      match [label="scan match"];
+      weight [label="weight"];
+      resample [label="resample"];
+      update [label="map update"];
+      predict -> match -> weight -> resample -> update;
+    }
+    acc -> predict [label="motion"];
+  }
+
+  map [label="/slam/map", shape=ellipse, fillcolor="#D5F5E3"];
+  pose [label="/slam/best_pose", shape=ellipse, fillcolor="#D5F5E3"];
+  parts [label="/slam/particles", shape=ellipse, fillcolor="#D5F5E3"];
+  tf [label="map->odom\ntransform", shape=ellipse, fillcolor="#D5F5E3"];
+
+  odom -> acc;
+  scan -> match [label="points"];
+  scan -> update [style=dashed];
+  timer [label="timer\n(map_publish_rate)"];
+  update -> pose;
+  update -> parts;
+  update -> timer [style=dashed, label="last result"];
+  timer -> map;
+  timer -> tf;
+}
