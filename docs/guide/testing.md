@@ -26,10 +26,11 @@ Each test in [`src/slam_cpp/CMakeLists.txt`](../../src/slam_cpp/CMakeLists.txt) 
 |---|---|
 | `unit` | The example tests of one module: occupancy grid, scan matching, particle filter, the synthetic room helper, config, odometry and angle helpers. |
 | `integration` | Tests that run several modules together: `scan_matching_integration_test` and `particle_filter_integration_test`. |
-| `prop` | The RapidCheck property tests: scan matching, the room helper, config and odometry. |
-| `fast` | Every test except `particle_filter_integration_test`. It includes the property tests. |
+| `prop` | The RapidCheck property tests: scan matching, the room helper, config, odometry, the occupancy grid (cell conversion and ray tracing) and angle wrapping. |
+| `launch` | `slam_node_launch_test`, ROS build only (the no-ROS build does not have it). It runs in about 8 s. It starts the node, feeds it synthetic odometry and scans, and checks the first pose, the latched pose, the map values and the `map` to `odom` transform. |
+| `fast` | Every test except `particle_filter_integration_test` and the launch test. It includes the property tests. |
 
-`particle_filter_integration_test` runs the full filter on a 24 m path, so it is the one test outside `fast`. Every test has `unit`, `integration` or `prop`, and every test but that one also has `fast`.
+`particle_filter_integration_test` runs the full filter on a 24 m path, so it is outside `fast`, as is the launch test. Every test has `unit`, `integration`, `prop` or `launch`, and every test but those two also has `fast`.
 
 ```bash
 colcon test --packages-select slam_cpp --ctest-args -L fast

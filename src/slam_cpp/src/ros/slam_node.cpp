@@ -103,7 +103,7 @@ static double yaw_from_quaternion(const geometry_msgs::msg::Quaternion & q)
  * |---|---|---|
  * | `/slam/map` | `nav_msgs/msg/OccupancyGrid` | reliable, transient local, depth 1 |
  * | `/slam/particles` | `geometry_msgs/msg/PoseArray` | reliable, volatile, depth 1 |
- * | `/slam/best_pose` | `geometry_msgs/msg/PoseStamped` | reliable, volatile, depth 1 |
+ * | `/slam/best_pose` | `geometry_msgs/msg/PoseStamped` | reliable, transient local, depth 1 |
  *
  * An odometry message whose position or orientation is not finite is dropped with a warning
  * (at most one per 5 s) and changes nothing.
@@ -113,6 +113,9 @@ static double yaw_from_quaternion(const geometry_msgs::msg::Quaternion & q)
  * `map_publish_rate` and stamped with the node clock. All carry `map_frame` as their
  * frame. Map cells are -1 for unknown, otherwise the occupancy probability in
  * percent (0 to 100). Poses are the particle poses in the map frame.
+ *
+ * A subscriber that joins later and asks for transient-local durability receives the last
+ * `/slam/best_pose`; a volatile subscriber still connects but gets only new poses.
  *
  * @par Transform
  * Broadcasts the transform from `map_frame` to `odom_frame` at `map_publish_rate`,
@@ -210,7 +213,9 @@ public:
       "/slam/map", rclcpp::QoS(
         1).transient_local());
     particles_pub_ = create_publisher<geometry_msgs::msg::PoseArray>("/slam/particles", 1);
-    pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("/slam/best_pose", 1);
+    pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
+      "/slam/best_pose", rclcpp::QoS(
+        1).transient_local());
 
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 

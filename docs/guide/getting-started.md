@@ -101,7 +101,7 @@ This includes `sim.launch.py` and starts the SLAM node with the same parameter f
 
 ## What to look at
 
-Drive the robot with the teleop window: it prints its keys when it starts. The SLAM node publishes `/slam/map` and the transform on a timer, but `/slam/best_pose` and `/slam/particles` only after a filter update, which needs the robot to move.
+Drive the robot with the teleop window: it prints its keys when it starts. The SLAM node publishes `/slam/map` and the transform on a timer, and publishes `/slam/best_pose` and `/slam/particles` at the first valid scan and then after each filter update, which needs the robot to move past the threshold. `/slam/best_pose` keeps its last pose for late subscribers.
 
 | Topic | Type | What it is |
 |---|---|---|
@@ -116,7 +116,7 @@ ros2 topic list
 ros2 topic hz /slam/map
 ```
 
-`ros2 topic hz /slam/map` should show about 2 Hz with the robot standing still. A pose appears on `/slam/best_pose` once the robot has moved 0.05 m or turned 0.05 rad, for example with the teleop. `ros2 topic echo /slam/best_pose --once` prints nothing before that.
+`ros2 topic hz /slam/map` should show about 2 Hz with the robot standing still. `ros2 topic echo /slam/best_pose --once` prints the last pose. While the robot stands still that is the pose of the first update, at the origin. A new pose appears once the robot has moved 0.05 m or turned 0.05 rad, for example with the teleop.
 
 The RViz configuration I ship shows the robot and `/scan`. Its fixed frame is already `map`, so RViz reports a missing frame until the SLAM node runs. It has no map display, so add a Map display for `/slam/map`.
 

@@ -24,6 +24,7 @@
 
 #include <Eigen/Dense>
 
+#include <optional>
 #include <random>
 #include <vector>
 
@@ -115,6 +116,16 @@ public:
   /// Number of calls to update_and_resample() so far, including the first.
   /// @return Call count; 0 before the first call.
   int global_counter() const {return global_counter_;}
+  /// Pose of the best particle at the last update that wrote the maps, in the
+  /// map frame: x, y in metres, theta in radians. The first update counts. The
+  /// maps are written again once the best pose has moved more than `map_update_dist`
+  /// or turned more than `map_update_angle` from this pose.
+  /// @return The pose (x, y, theta); `std::nullopt` before the first update.
+  std::optional<Eigen::Vector3d> last_map_update_pose() const
+  {
+    if (!has_last_map_update_pose_) {return std::nullopt;}
+    return last_map_update_pose_;
+  }
 
 private:
   SlamConfig config_;

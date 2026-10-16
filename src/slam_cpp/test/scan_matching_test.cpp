@@ -321,43 +321,63 @@ TEST_F(ScanMatchingTest, BilinearInterpolationKnownValues)
 // --------------------------------------------------------------------------
 TEST_F(ScanMatchingTest, BilinearGradientsMatchFiniteDifferences)
 {
-  // Build a grid with a wall so there are spatial gradients to measure.
+  // Wall at row 70. Query points are off integer sample coordinates (cell
+  // centres), so every point and its +-h neighbours stay inside one patch.
   auto grid = make_grid_with_wall();
   slam::GridView gv = slam::make_grid_view(grid, config, *sigmoid);
 
-  // Query a point near the wall edge where gradients should be non-zero.
-  // Wall is at y=2.0 → pixel row = 70. Query just below: pixel (50, 69.5).
-  Eigen::Matrix<double, Eigen::Dynamic, 2> pt(1, 2);
-  pt << 50.0, 69.5;
-
-  auto result = slam::bilinear_interpolation(gv, pt, /*compute_gradients=*/ true);
-
-  // Skip if point is out of bounds.
-  if (result.mask(0) == 0) {
-    GTEST_SKIP() << "Query point out of bounds";
+  const double pts[][2] = {{50.3, 69.5}, {53.7, 69.25}, {47.2, 60.6}, {55.4, 40.8}};
+  const double h = 1e-4;
+  bool any_nonzero = false;
+  for (const auto & p : pts) {
+    Eigen::Matrix<double, Eigen::Dynamic, 2> q(5, 2);
+    q << p[0], p[1], p[0] + h, p[1], p[0] - h, p[1], p[0], p[1] + h, p[0], p[1] - h;
+    auto r = slam::bilinear_interpolation(gv, q, /*compute_gradients=*/ true);
+    for (int i = 0; i < 5; ++i) {
+      ASSERT_EQ(r.mask(i), 1) << "point " << p[0] << "," << p[1];
+    }
+    const double fd_gx = (r.values(1) - r.values(2)) / (2.0 * h);
+    const double fd_gy = (r.values(3) - r.values(4)) / (2.0 * h);
+    EXPECT_NEAR(r.gradients(0, 0), fd_gx, 1e-6) << "point " << p[0] << "," << p[1];
+    EXPECT_NEAR(r.gradients(0, 1), fd_gy, 1e-6) << "point " << p[0] << "," << p[1];
+    any_nonzero = any_nonzero || std::abs(fd_gx) > 1e-3 || std::abs(fd_gy) > 1e-3;
   }
+  EXPECT_TRUE(any_nonzero);  // otherwise the comparison is 0 == 0
+}
 
-  // Finite difference approximation: f(x+h) - f(x-h)) / (2h)
-  double h = 0.01;
-  Eigen::Matrix<double, Eigen::Dynamic, 2> pt_xp(1, 2), pt_xm(1, 2);
-  Eigen::Matrix<double, Eigen::Dynamic, 2> pt_yp(1, 2), pt_ym(1, 2);
-  pt_xp << 50.0 + h, 69.5;
-  pt_xm << 50.0 - h, 69.5;
-  pt_yp << 50.0, 69.5 + h;
-  pt_ym << 50.0, 69.5 - h;
+// --------------------------------------------------------------------------
+// calculate_log_weight on an all-unknown grid: every probability is 0.5, so
+// the weight is (number of used points) * ln(0.5) / (obs_sigma_gain * N).
+// --------------------------------------------------------------------------
+TEST_F(ScanMatchingTest, CalculateLogWeightOnUnknownGrid)
+{
+  config.num_particles = 4;
+  config.obs_sigma_gain = 2.0;
+  slam::OccupancyGrid grid(config.map_size, config.map_size, config.map_resolution, config);
+  slam::GridView gv = slam::make_grid_view(grid, config, *sigmoid);
+  const Eigen::Vector3d pose(0.0, 0.0, 0.0);
+  const double ln_half = std::log(0.5);
 
-  auto r_xp = slam::bilinear_interpolation(gv, pt_xp, false);
-  auto r_xm = slam::bilinear_interpolation(gv, pt_xm, false);
-  auto r_yp = slam::bilinear_interpolation(gv, pt_yp, false);
-  auto r_ym = slam::bilinear_interpolation(gv, pt_ym, false);
-
-  if (r_xp.mask(0) && r_xm.mask(0) && r_yp.mask(0) && r_ym.mask(0)) {
-    double fd_gx = (r_xp.values(0) - r_xm.values(0)) / (2.0 * h);
-    double fd_gy = (r_yp.values(0) - r_ym.values(0)) / (2.0 * h);
-
-    EXPECT_NEAR(result.gradients(0, 0), fd_gx, 0.1);
-    EXPECT_NEAR(result.gradients(0, 1), fd_gy, 0.1);
+  Eigen::Matrix<double, Eigen::Dynamic, 2> in_grid(5, 2);
+  for (int i = 0; i < 5; ++i) {
+    in_grid(i, 0) = -1.0 + 0.5 * i;
+    in_grid(i, 1) = 0.7;
   }
+  config.score_stride = 1;
+  double w = slam::calculate_log_weight(gv, pose, in_grid, config);
+  EXPECT_NEAR(w, 5 * ln_half / 8.0, 1e-12 * std::abs(5 * ln_half / 8.0));
+
+  config.score_stride = 2;  // rows 0, 2, 4
+  w = slam::calculate_log_weight(gv, pose, in_grid, config);
+  EXPECT_NEAR(w, 3 * ln_half / 8.0, 1e-12 * std::abs(3 * ln_half / 8.0));
+
+  Eigen::Matrix<double, Eigen::Dynamic, 2> with_off(6, 2);
+  with_off.topRows(5) = in_grid;
+  with_off.row(5) << 100.0, 0.0;  // far outside the 10 m grid
+  config.score_stride = 1;
+  w = slam::calculate_log_weight(gv, pose, with_off, config);
+  const double expected = (5 * ln_half + std::log(1e-9)) / 8.0;
+  EXPECT_NEAR(w, expected, 1e-12 * std::abs(expected));
 }
 
 // --------------------------------------------------------------------------

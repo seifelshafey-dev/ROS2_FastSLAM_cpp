@@ -300,6 +300,7 @@ TEST_F(ParticleFilterTest, BestParticleSurvivesResampling)
     const Eigen::Vector3d truth(0.1 * k, 0.0, 0.0);
     filter.update_and_resample(slam_test::scan_from(truth, 4.03, 3.02, 0.01, rng));
 
+    EXPECT_NEAR(filter.weights().sum(), 1.0, 1e-12) << "step " << k;
     const size_t best = filter.best_particle_index();
     ASSERT_LT(best, 10u);
 
@@ -345,6 +346,7 @@ TEST_F(ParticleFilterTest, BestParticleIsACopyOfTheHeaviestAncestorAfterResampli
     filter.predict(0.1, 0.0, 0.0, 1.0);
     filter.update_and_resample(
       slam_test::scan_from({0.1 * k, 0.0, 0.0}, 4.03, 3.02, 0.01, rng));
+    EXPECT_NEAR(filter.weights().sum(), 1.0, 1e-12) << "step " << k;
     if ((filter.weights().array() - 0.1).abs().maxCoeff() >= 1e-15) {
       continue;                                                                 // no resample
     }
@@ -372,6 +374,49 @@ TEST_F(ParticleFilterTest, BestParticleIsACopyOfTheHeaviestAncestorAfterResampli
     }
   }
   EXPECT_GE(resamples, 5);
+}
+
+// --------------------------------------------------------------------------
+// The map-update pose is empty before the first update and the best pose
+// after it; later it either stays or is replaced by exactly the current best
+// pose (a map write). The run must show both outcomes.
+// --------------------------------------------------------------------------
+TEST_F(ParticleFilterTest, LastMapUpdatePoseIsNulloptThenTracksBestPose)
+{
+  config.obs_sigma_gain = 0.003;
+  // Seeds 19 and 72 drop the heaviest ancestor at a resample that writes the maps.
+  int resamples = 0, kept = 0, replaced = 0;
+  for (const int seed : {42, 19, 72}) {
+    slam::ParticleFilter filter(config, seed);
+    EXPECT_FALSE(filter.last_map_update_pose().has_value());
+
+    std::mt19937 rng(7);
+    filter.update_and_resample(slam_test::scan_from({0.0, 0.0, 0.0}, 4.03, 3.02, 0.01, rng));
+    auto best_pose = [&]() {
+        return Eigen::Vector3d(
+          filter.poses().col(static_cast<Eigen::Index>(filter.best_particle_index())));
+      };
+    ASSERT_TRUE(filter.last_map_update_pose().has_value());
+    EXPECT_EQ(*filter.last_map_update_pose(), best_pose());
+
+    for (int k = 1; k <= 10; ++k) {
+      const Eigen::Vector3d before = *filter.last_map_update_pose();
+      filter.predict(0.1, 0.0, 0.0, 1.0);
+      filter.update_and_resample(
+        slam_test::scan_from({0.1 * k, 0.0, 0.0}, 4.03, 3.02, 0.01, rng));
+      if ((filter.weights().array() - 0.1).abs().maxCoeff() < 1e-15) {++resamples;}
+      const Eigen::Vector3d after = *filter.last_map_update_pose();
+      if (after == before) {
+        ++kept;
+      } else {
+        ++replaced;
+        EXPECT_EQ(after, best_pose()) << "seed " << seed << " step " << k;
+      }
+    }
+  }
+  EXPECT_GE(resamples, 10);  // otherwise the run did not exercise resampling
+  EXPECT_GE(replaced, 1);
+  EXPECT_GE(kept, 1);
 }
 
 #ifdef SLAM_HAS_OPENMP

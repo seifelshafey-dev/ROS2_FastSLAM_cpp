@@ -24,7 +24,7 @@ This split is the check that the core is free of ROS: the no-ROS build contains 
 
 ## Tests
 
-GoogleTest, with RapidCheck for the property tests. Each test has one of the labels `unit`, `integration` or `prop`. All but the particle filter integration test also have `fast`, so `ctest -L fast` skips that one. The labels are set in [`CMakeLists.txt`](../../src/slam_cpp/CMakeLists.txt). Under ROS the suite is run by `colcon test`, which also runs the linters.
+GoogleTest, with RapidCheck for the property tests. Each test has one of the labels `unit`, `integration`, `prop` or `launch`. The launch test (`slam_node_launch_test`) is built only with ROS. All but it and the particle filter integration test also have `fast`, so `ctest -L fast` skips those two. The labels are set in [`CMakeLists.txt`](../../src/slam_cpp/CMakeLists.txt). Under ROS the suite is run by `colcon test`, which also runs the linters.
 
 ## Container
 
