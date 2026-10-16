@@ -106,9 +106,11 @@ public:
 
   /// Integrates one laser scan into the grid.
   ///
-  /// Every cell on the ray from the robot cell to a beam's hit cell has its
-  /// value lowered by the free-space increment; the hit cell has its value
-  /// raised by the occupied increment. Values are clamped to the configured
+  /// For each beam, the robot cell and every cell on the ray up to, but not
+  /// including, the hit cell have their value lowered by the free-space
+  /// increment; the hit cell has its value raised by the occupied increment
+  /// only. A beam whose hit cell is the robot cell raises that cell and lowers
+  /// none. Values are clamped to the configured
   /// limits. A beam whose hit point lies outside the grid is skipped. If the
   /// robot itself is outside the grid, the grid is left unchanged.
   ///
@@ -200,8 +202,9 @@ private:
   int8_t quality_threshold_;  // e.g., 20 = round(1.0 * 20) for map_quality counters
 
   // Traces one ray from (x0,y0) to (x1,y1) in cell coordinates with Bresenham's
-  // line algorithm in integer arithmetic. Cells on the ray get lo_free_, the
-  // end cell gets lo_occupied_. Every cell is bounds-checked, including the end.
+  // line algorithm in integer arithmetic. The start cell and the cells between
+  // get lo_free_; the end cell gets only lo_occupied_ (a start cell equal to
+  // the end cell gets only lo_occupied_). Every cell is bounds-checked, including the end.
   void bresenham_raycast(int x0, int y0, int x1, int y1);
 
   // The only function that writes to data_->cells. Adds delta, clamps to
